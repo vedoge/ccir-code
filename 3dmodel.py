@@ -35,14 +35,14 @@ lam = np.pi/2 - np.atan(1/(np.sin(phi)*np.tan(alpha)))
 chi = np.tan(0.5/np.atan(lam))
 # integrate the equation of motion
 while rm*np.cos(lam)**2 >= rpuls:
-	ag = G*m_pulsar * math.cos(chi) / (r**2) 
+	ag = G*m_pulsar * np.cos(chi) / (r**2) 
 	# calculate centrifugal using -n dot omega cross (omega cross position)
 	coord = surf2cart(lam,phi,rm) # r
 	# NEED NORM FIXME
 	norm = # n
 	dx = v*dt + 0.5*a*(dt**2) # verlet
 	v = v + a*dt # update velocity
-	lam += dx / (rm*math.cos(lam) * (1+3*(math.sin(lam)**2))**0.5) # calculate delta-lambda based on eq. given
-	chi = math.atan(1/(2*math.tan(lam)))
-	r = rm * (math.cos(lam)**2)
+	lam += dx / (rm*np.cos(lam) * (1+3*(np.sin(lam)**2))**0.5) # calculate delta-lambda based on eq. given
+	chi = np.atan(1/(2*np.tan(lam)))
+	r = rm * (np.cos(lam)**2)
 	t += dt

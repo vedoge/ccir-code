@@ -17,7 +17,7 @@ def cart2surf(a):
 # universal gravitational constant
 G = 6.67e-8 # dyn cm^2 g^-2
 # parameters of significance in the calculation
-f = 1 # Hz
+f = 10 # Hz
 wmag = 2*np.pi*f # radHz
 alpha = 0 # rad
 w = wmag*np.array([np.sin(alpha),0,np.cos(alpha)]) # radHz (Cartesian)
@@ -26,11 +26,11 @@ rpuls = np.array(1e6) #cm
 M = 2.784e33 # g
 # initial conditions of the particle in question
 phi = 0
-v = 1e5
-dx = 0 # arclength (will be converted to delta-lambda)
+v = np.array([0,0,1e5])
+dx = 0 # change in radius (converted to delta-lambda)
 # fixed timestep 
 t = 0
-dt = 1e-4
+dt = 1e-5
 # calculate initial elevation
 if phi != 0 and alpha != 0:
 	lam = np.pi/2 - np.atan(1/(np.sin(phi)*np.tan(alpha)))
@@ -46,9 +46,8 @@ while np.any(r >= rpuls):
 	nphi = phi + np.pi
 	n = np.array([np.cos(ntheta)*np.cos(nphi),np.cos(ntheta)*np.sin(nphi),np.sin(ntheta)])
 	pos = surf2cart(lam,phi,rm)
-	acen = np.dot(n,np.cross(w,np.cross(w,pos)))*n
-	print(t,v)
-	ag = n*G*M* np.cos(chi) / (r**2)
+	acen = -np.dot(n,np.cross(w,np.cross(w,pos)))*n
+	ag = n*G*M*np.cos(chi)/(r**2)
 	a = ag + acen
 	dx = v*dt + 0.5*a*(dt**2) # verlet
 	v = v + a*dt # update velocity
@@ -56,3 +55,4 @@ while np.any(r >= rpuls):
 	chi = np.atan(1/(2*np.tan(lam)))
 	r = rm * (np.cos(lam)**2)
 	t += dt
+print(t,r)

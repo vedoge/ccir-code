@@ -24,35 +24,18 @@ w = wmag*np.array([np.sin(alpha),0,np.cos(alpha)]) # radHz (Cartesian)
 rm = np.array(1e8) # cm
 rpuls = np.array(1e6) #cm
 M = 2.784e33 # g
-# initial conditions of the particle in question
-phi = 0
-v = np.array([0,0,1e5])
-dx = 0 # change in radius (converted to delta-lambda)
-# fixed timestep 
-t = 0
-dt = 1e-5
-# calculate initial elevation
-if phi != 0 and alpha != 0:
-	lam = np.pi/2 - np.atan(1/(np.sin(phi)*np.tan(alpha)))
-	chi = np.tan(0.5/np.atan(lam))
-else: 
-	lam = 0
-	chi = np.pi/2
-r = rm*np.cos(lam)**2
-# integrate the equation of motion
-#TODO loop condition
-	# calculate centrifugal using -n dot omega cross (omega cross position)
-	ntheta = 3*np.pi/2 + lam - chi
-	nphi = phi + np.pi
-	n = np.array([np.cos(ntheta)*np.cos(nphi),np.cos(ntheta)*np.sin(nphi),np.sin(ntheta)])
-	pos = surf2cart(lam,phi,rm)
-	acen = -np.dot(n,np.cross(w,np.cross(w,pos)))*n
-	ag = n*G*M*np.cos(chi)/(r**2)
-	a = ag + acen
-	dx = v*dt + 0.5*a*(dt**2) # verlet
-	v = v + a*dt # update velocity
-	lam += np.linalg.norm(dx) / (rm*np.cos(lam) * (1+3*(np.sin(lam)**2))**0.5) # calculate delta-lambda based on eq. given
-	chi = np.atan(1/(2*np.tan(lam)))
-	r = rm * (np.cos(lam)**2)
-	t += dt
+# set up 2-dimensional space
+lam = np.linspace(-np.pi/2,np.pi/2,1000)
+phi = np.linspace(0,np.pi*2,1000)
 
+
+ntheta = np.pi + lam - np.atan(0.5/np.tan(lam))
+nphi = phi + np.pi
+n = np.array(	[np.cos(ntheta)*np.cos(nphi),
+				np.cos(ntheta)*np.sin(nphi),
+				np.sin(ntheta)]
+			)
+# centrifugal acceleration = -n@(w*(w*r))*n
+# gravitational acceleration = n*G*M*pos@n/(np.linalg.norm(pos)**3)
+print(ntheta)
+print(n)

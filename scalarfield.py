@@ -37,5 +37,4 @@ n = np.array(	[np.cos(ntheta)*np.cos(nphi),
 			)
 # centrifugal acceleration = -n@(w*(w*r))*n
 # gravitational acceleration = n*G*M*pos@n/(np.linalg.norm(pos)**3)
-print(ntheta)
-print(n)
+

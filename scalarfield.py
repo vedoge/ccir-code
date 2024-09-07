@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 # define coordinate system (lambda, phi) in region [-pi/2,pi/2]x[0,2pi]
 # calculate starting lambda from alpha and phi
 # cross product easy to implement in cartesian
@@ -21,20 +22,19 @@ f = 10 # Hz
 wmag = 2*np.pi*f # radHz
 alpha = 0 # rad
 w = wmag*np.array([np.sin(alpha),0,np.cos(alpha)]) # radHz (Cartesian)
-rm = np.array(1e8) # cm
-rpuls = np.array(1e6) #cm
+rm = 1e8 # cm
+rpuls = 1e6 #cm
 M = 2.784e33 # g
 # set up 2-dimensional space
-lam = np.linspace(-np.pi/2,np.pi/2,1000)
-phi = np.linspace(0,np.pi*2,1000)
-
-
-ntheta = np.pi + lam - np.atan(0.5/np.tan(lam))
-nphi = phi + np.pi
-n = np.array(	[np.cos(ntheta)*np.cos(nphi),
-				np.cos(ntheta)*np.sin(nphi),
-				np.sin(ntheta)]
-			)
+lam = np.linspace(-np.pi/2,np.pi/2,1001)
+phi = np.linspace(0,np.pi*2,1001)
+spacelam,spacephi = np.meshgrid(lam,phi)
+r = rm*(np.cos(spacelam)**2)*np.array([np.cos(spacelam)*np.cos(spacephi), np.cos(spacelam)*np.sin(spacephi), np.sin(spacelam)]) # mathematics convention (latitude)
 # centrifugal acceleration = -n@(w*(w*r))*n
 # gravitational acceleration = n*G*M*pos@n/(np.linalg.norm(pos)**3)
-
+slope_lat = np.atan(0.5/np.tan(spacelam))-spacelam # signed latitude for normal vector at each point
+n = np.array([np.cos(slope_lat)*np.cos(spacephi), np.cos(slope_lat)*np.sin(spacephi), np.sin(slope_lat)]) # mathematics convention (latitude)
+h = plt.contourf(spacelam,spacephi,np.linalg.norm(r,axis=0)) # works
+plt.colorbar()
+plt.show()
+# now we need to evaluate acceleration at every point (thank god for SIMD)

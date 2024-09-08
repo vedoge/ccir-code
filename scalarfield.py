@@ -29,12 +29,26 @@ M = 2.784e33 # g
 lam = np.linspace(-np.pi/2,np.pi/2,1001)
 phi = np.linspace(0,np.pi*2,1001)
 spacelam,spacephi = np.meshgrid(lam,phi)
-r = rm*(np.cos(spacelam)**2)*np.array([np.cos(spacelam)*np.cos(spacephi), np.cos(spacelam)*np.sin(spacephi), np.sin(spacelam)]) # mathematics convention (latitude)
+r = np.array([
+			(rm*np.cos(spacelam)**3)*np.cos(spacephi),
+			(rm*np.cos(spacelam)**3)*np.sin(spacephi),
+			(rm*np.cos(spacelam)**2)*np.sin(spacelam)
+			]) # mathematics convention (latitude)
 # centrifugal acceleration = -n@(w*(w*r))*n
 # gravitational acceleration = n*G*M*pos@n/(np.linalg.norm(pos)**3)
 slope_lat = np.atan(0.5/np.tan(spacelam))-spacelam # signed latitude for normal vector at each point
 n = np.array([np.cos(slope_lat)*np.cos(spacephi), np.cos(slope_lat)*np.sin(spacephi), np.sin(slope_lat)]) # mathematics convention (latitude)
-h = plt.contourf(spacelam,spacephi,np.linalg.norm(r,axis=0)) # works
-plt.colorbar()
-plt.show()
 # now we need to evaluate acceleration at every point (thank god for SIMD)
+ag = -G*M*r@n/(np.linalg.norm(r,axis=0)**3)
+print(ag.shape)
+#plt.contourf(spacelam,spacephi,np.linalg.norm(ag,axis=0)) # is actually a very reasonable graph - the value explodes close to lambda=np.pi/2 (visible in the 10^50 cm^2 yellow bar on either end)
+#plt.colorbar()
+#plt.show()
+# work out how to do a cross product of r[:,i,j] with w
+# find a function lambda(phi,w,alpha,beta)
+for i in range(r.shape[1]):
+	for j in range(r.shape[2]):
+		# loop over all the vectors to do |-n@(w x (w x r))| for each point
+		# then add |ag| to the result
+		#produce a contour chart of log10(result) against x
+		# later, we write a simulation that operates on fixed arclength & variable dt

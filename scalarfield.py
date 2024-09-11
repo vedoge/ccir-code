@@ -5,7 +5,7 @@ G = 6.67e-8 # dyn cm^2 g^-2
 # parameters of significance in the calculation
 f = 10 # Hz
 wmag = 2*np.pi*f # radHz
-alpha = 0 # rad
+alpha = 1 # rad
 w = wmag*np.array([np.sin(alpha),0,np.cos(alpha)]) # radHz (Cartesian)
 rm = 1e8 # cm
 rpuls = 1e6 #cm
@@ -15,37 +15,36 @@ M = 2.784e33 # g
 maxlam = np.acos(np.sqrt(rpuls/rm))
 lam = np.linspace(-maxlam,maxlam,1001)
 phi = np.linspace(0,np.pi*2,1001)
-spacelam,spacephi = np.meshgrid(lam,phi)
+spacelam,spacephi = np.meshgrid(lam,phi) # create 3-D space for vectorisation 
 r = np.array([
-			(rm*np.cos(spacelam)**2)*np.cos(spacelam)*np.cos(spacephi),
-			(rm*np.cos(spacelam)**2)*np.cos(spacelam)*np.sin(spacephi),
-			(rm*np.cos(spacelam)**2)*np.sin(spacelam)
-			]) # mathematics convention (latitude)
-# centrifugal acceleration = -n@(w*(w*r))*n
-# gravitational acceleration = n*G*M*pos@n/(np.linalg.norm(pos)**3)
-slope_lat = np.atan(0.5/np.tan(spacelam))-spacelam # signed latitude for normal vector at each point
-n = np.array([
-			np.cos(slope_lat)*np.cos(spacephi+np.pi),
-			np.cos(slope_lat)*np.sin(spacephi+np.pi),
-			np.sin(slope_lat)
-			])# mathematics convention (latitude) vector along magnetic field lines for every point (lambda, phi)
+	(rm*np.cos(spacelam)**2)*np.cos(spacelam)*np.cos(spacephi),
+	(rm*np.cos(spacelam)**2)*np.cos(spacelam)*np.sin(spacephi),
+	(rm*np.cos(spacelam)**2)*np.sin(spacelam)
+	]) # mathematics convention (latitude)
+# centrifugal acceleration = -n dot (w*(w*r))*n
+# gravitational acceleration = - n dot G*M*r/(np.linalg.norm(pos)**3)
+# mathematics convention (latitude) vector along magnetic field lines for every point (lambda, phi)
+# n = [-2*sin(lambda),cos(lambda),0] in [r,lambda,phi] coordinates
+# n = [-2*sin(lambda),cos(lambda),0]*[r;theta;phi]
+# if you put in other coordinates for r, theta, and phi, they become a matrix
+# that yields the below equation for n in cartesian coordinates
+n =-np.array([np.sin(spacelam)*np.cos(spacelam)*np.cos(spacephi),
+			  np.sin(spacelam)*np.cos(spacelam)*np.sin(spacephi),
+			  2*np.sin(spacelam)**2-np.cos(spacelam)**2
+			  ])
+n = n/np.linalg.norm(n,axis=0) # normalise
 # now we need to evaluate acceleration at every point
-ag = -G*M*np.cos(slope_lat+spacelam)/(np.linalg.norm(r,axis=0)**2)
-acen = np.zeros(r.shape) # create array full of zeros in the necessary shape
+ag = -G*M*np.linalg.vecdot(r,n,axis=0)/np.linalg.norm(r,axis=0)**3
 # please find a way to make this agonisingly slow job faster
 #for i in range(r.shape[1]):
 #    for j in range(r.shape[2]):
 #        acen[:,i,j] = -n[:,i,j]@np.cross(w,np.cross(w,r[:,i,j]))
 #w*(w*r)
-print(n.shape)
-print(w.shape)
-acen = np.cross(w,np.cross(w,r,axis=0),axis=0) #problem here dotting n with each vector
-
-a = np.linalg.norm(acen, axis=0) + np.linalg.norm(ag,axis=0)
-plt.contourf(spacelam,spacephi,np.log10(np.linalg.norm(acen,axis=0)))
+acen = np.linalg.vecdot(-n,np.cross(w,np.cross(w,r,axis=0),axis=0),axis=0) #problem here dotting n with each vector
+plt.contourf(spacelam,spacephi,np.sign(ag+acen)*np.log10(np.abs(ag+acen)))
 plt.xlabel("lambda / rad")
 plt.ylabel("phi / rad")
-plt.title("Contour plot of log centrifugal acceleration/ log(cm s^-2)")
+plt.title("Contour plot of centrifugal acceleration/ cm s^-2")
 plt.colorbar()
 plt.show()
 #lambda* = arctan(1/(sin(phi)*tan(lambda)))

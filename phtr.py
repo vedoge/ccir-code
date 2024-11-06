@@ -36,11 +36,12 @@ while not np.all(stopped):
 	print(ul.shape[2],np.sum(stopped))
 	# correct fate: 
 	# idx = [condition]
-	ulim = 0.5*rs/(rm*(cos(phi)**2)) # u limits
+	ulim = 0.5*rs/(rm*(sin(phi)**2)) # u limits
 	# whatever has cleared the magnetosphere
 	idx = ((ul[:,:,-1] >= ulim) & (ul[:,:,-2] <= ulim)) | ((ul[:,:,-1] <= ulim) & (ul[:,:,-2] >= ulim))
 	# process the impact angle
 	stopped[idx] = True
+	# record du/dphi, record u, record phi for the impact
 	u[idx] = 0 # photon banished to infinity
 	uv[idx] = 0
 	# record photon impact

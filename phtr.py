@@ -20,14 +20,13 @@ rm= 1e8 # radius of mag-field
 rpuls = 1e6 # pulsar inner radius
 maxlam = np.acos(np.sqrt(rpuls/rm))
 dphi = -1e-3
-u = 0.5*rs/rpuls # for all of them
-alpha, phi0 = np.meshgrid(np.arange(0,2*pi,pi/100),np.arange(0,2*pi,pi/100))
+alpha, phi0 = np.meshgrid(np.arange(-pi/2,pi/2,pi/100),np.array([-pi/2,pi/2]))
 phi = phi0
+u = np.full_like(phi,0.5*rs/rpuls)
 uv = -u/tan(alpha-phi)
-u = np.full_like(phi,u)
-uf = np.zeros_Like(u)
-ufprime = np.zeros_like(uv)
-fphi = np.zeros_like(phi)
+uf = np.full_like(u,np.nan)
+ufprime = np.full_like(uv,np.nan)
+fphi = np.full_like(phi,np.nan)
 ul = np.expand_dims(u.copy(),axis=2)
 stopped = np.full_like(phi,False,dtype=bool)
 while not np.all(stopped):
@@ -36,7 +35,7 @@ while not np.all(stopped):
 	uv += ua*dphi
 	phi += dphi # check
 	ul = np.append(ul[:,:,:],u[:,:,np.newaxis],axis=2)
-	print(ul.shape[2],np.sum(stopped))
+	print(np.sum(stopped))
 	# correct fate: 
 	# idx = [condition]
 	ulim = 0.5*rs/(rm*(sin(phi)**2)) # u limits
@@ -54,10 +53,15 @@ while not np.all(stopped):
 	stopped[idx] = True
 	u[idx] = 0
 	uv[idx] = 0
-# use the formula in the paper to calculate dy/dx for each of the curves
 rf = 0.5*rs/uf
-rprime = -0.5*rs/(ufprime**2)
-dydx_l = (rprime*cos(phi)-rf*sin(phi))/(rprime*sin(phi)+rf*cos(phi))
+rprime = -0.5*rs*ufprime/(ufprime**2)
+# checked with Sharada Aunty
+# think about the below formula. Check it: with conversion with dy/dx, it should vanish at 35.3 deg. 
 rprime_b = rm*sin(2*phi)
-dydx_b = (rprime_b*cos(phi)-rf*sin(phi))/(rprime_b*sin(phi)+rf*cos(phi))
-dot = cos(atan(dydx_l) + atan(dydx_b)
+# rethink the data extraction
+weight = cos(atan(rf/rprime) - atan(rf/rprime_b))*cos(alpha) # r dtheta /dr
+plt.plot(weight[0],phi[0])
+plt.show()
+
+
+

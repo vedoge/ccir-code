@@ -24,10 +24,13 @@ alpha, phi0 = np.meshgrid(np.arange(-pi/2,pi/2,pi/100),np.array([-pi/2,pi/2]))
 phi = phi0
 u = np.full_like(phi,0.5*rs/rpuls)
 uv = -u/tan(alpha-phi)
+# result collection arrays
 uf = np.full_like(u,np.nan)
 ufprime = np.full_like(uv,np.nan)
 fphi = np.full_like(phi,np.nan)
 ul = np.expand_dims(u.copy(),axis=2)
+uvl = np.expand_dims(u.copy(),axis=2)
+# keep track of which light rays are still moving
 stopped = np.full_like(phi,False,dtype=bool)
 while not np.all(stopped):
 	ua = 3*(u**2) - u
@@ -35,6 +38,7 @@ while not np.all(stopped):
 	uv += ua*dphi
 	phi += dphi # check
 	ul = np.append(ul[:,:,:],u[:,:,np.newaxis],axis=2)
+	uvl = np.append(uvl[:,:,:],u[:,:,np.newaxis],axis=2)
 	print(np.sum(stopped))
 	# correct fate: 
 	# idx = [condition]
@@ -57,11 +61,14 @@ rf = 0.5*rs/uf
 rprime = -0.5*rs*ufprime/(ufprime**2)
 # checked with Sharada Aunty
 # think about the below formula. Check it: with conversion with dy/dx, it should vanish at 35.3 deg. 
-rprime_b = rm*sin(2*phi)
-# rethink the data extraction
-weight = cos(atan(rf/rprime) - atan(rf/rprime_b))*cos(alpha) # r dtheta /dr
-plt.plot(weight[0],phi[0])
-plt.show()
-
-
+rprime_b = rm*sin(2*phi) # check this formula on desmos
+# now let's think about how to extract this data and turn it into force
+# my method - calculate the solid angle attached to each light ray
+# calculate the total luminous exitance at the poles (erg s^-1)
+# divide by 4pi (2 hemispheres of radiation - together 4pi steradians - unit area) to find radiance (erg s^-1 cm^-2 sr)
+# multiply by cos(alpha) - to account for distribution
+# then trace light paths
+# find the cells of impact
+# apply the formulae, get the analytical solutions
+# profit
 

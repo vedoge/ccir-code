@@ -18,7 +18,7 @@ cross = np.cross
 norm = np.linalg.norm
 sqrt = np.sqrt
 # for multiprocessing
-import concurrent.futures
+from threading import Thread
 # set up a stream of random numbers
 rng = np.random.Generator(np.random.SFC64())
 rand = rng.random
@@ -51,7 +51,7 @@ def acc(lam,phi,arr):
 	n = n/norm(n,axis=0) # normalise
 	# ag = -G*M*dot(r,n,axis=0)/norm(r,axis=0)**3
 	# acen = dot(-n,cross(w,cross(w,r,axis=0),axis=0),axis=0)
-	return -G*M*dot(r,n,axis=0)/norm(r,axis=0)**3 + dot(-n,cross(w,cross(w,r,axis=0),axis=0),axis=0)
+	arr = -G*M*dot(r,n,axis=0)/norm(r,axis=0)**3 + dot(-n,cross(w,cross(w,r,axis=0),axis=0),axis=0)
 lam = np.zeros(int(1e5))
 lam[0] = -maxlam
 for i in range(int(1e5)-1):
@@ -62,10 +62,12 @@ for i in range(int(1e5)-1):
 # generate lambdas
 phi, lam = np.meshgrid(np.arange(0,2*pi,pi/50),lam)
 # now make things
-a = np.empty_like(phi)
-ac = np.empty.like(phi)
-with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
-	a = 
+global a;a = np.empty_like(phi)
+print(a)
+# ac = np.empty.like(phi)
+t1 = Thread(target=acc,args=(phi,lam,a))
+print(t1.run())
+print(a)
 # now, we have acceleration for each lambda and phi
 t = 0
 lam0 = lat0(phi[0,:],wmag*t)

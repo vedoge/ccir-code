@@ -13,8 +13,8 @@ rpuls = 1e6 #cm
 M = 2.784e33 # g
 # set up 2-dimensional space
 maxlam = np.acos(np.sqrt(rpuls/rm))
-lam = np.linspace(-maxlam,maxlam,10001) # this is extra slow with such a low number
-phi = np.linspace(0,np.pi*2,10001) # this is actually okay
+lam = np.linspace(-maxlam,maxlam,1001) # this is extra slow with such a low number
+phi = np.linspace(0,np.pi*2,1001) # this is actually okay
 spacelam,spacephi = np.meshgrid(lam,phi) # create 3-D space for vectorisation 
 r = np.array([
 	(rm*np.cos(spacelam)**2)*np.cos(spacelam)*np.cos(spacephi),
@@ -45,9 +45,7 @@ ax = plt.axes(projection='3d')
 ax.plot_surface(spacelam,spacephi,np.sign(ag+acen)*np.log10(np.abs(ag+acen)))
 ax.set_xlabel(r"$\lambda$ / rad")
 ax.set_ylabel(r"$\varphi$ / rad")
-ax.set_zlabel(r"$\sgn \left( a \right) \log_{10} \left| a \right|$")
+ax.set_zlabel(r"$\mathrm{sgn} \left( a \right) \log_{10} \left| a \right|$")
 #plt.colorbar()
-lam0 = np.atan(np.sin(phi)*np.tan(beta))
-plt.plot(lam0,phi)
 plt.show()
 #lambda* = arctan(1/(sin(phi)*tan(beta)))

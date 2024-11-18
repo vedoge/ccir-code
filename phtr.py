@@ -11,6 +11,7 @@ dot = np.linalg.vecdot
 cross = np.cross
 norm = np.linalg.norm
 sqrt = np.sqrt
+sign = np.sign
 
 G = 6.67e-8 # dyn cm^2 g^-2
 M = 2.864e33 # 1.4 Msun
@@ -19,49 +20,59 @@ rs = 2*G*M/(c**2)
 rm= 1e8 # radius of mag-field
 rpuls = 1e6 # pulsar inner radius
 maxlam = np.acos(np.sqrt(rpuls/rm))
-dphi = -1e-3
-alpha, phi0 = np.meshgrid(np.arange(-pi/2,pi/2,pi/100),np.array([-pi/2,pi/2]))
-phi = phi0
-u = np.full_like(phi,0.5*rs/rpuls)
-uv = -u/tan(alpha-phi)
+inc = -1e-4
+alpha, lam0 = np.meshgrid(np.arange(-pi/2,pi/2,pi/100),np.array([-pi/2,pi/2]))
+lam = lam0
+print(lam.shape)
+u = np.full_like(lam,0.5*rs/rpuls)
+uv = -u/tan(alpha-lam)
 # result collection arrays
 uf = np.full_like(u,np.nan)
 ufprime = np.full_like(uv,np.nan)
-fphi = np.full_like(phi,np.nan)
-ul = np.expand_dims(u.copy(),axis=2)
-uvl = np.expand_dims(u.copy(),axis=2)
+flam = np.full_like(lam,np.nan)
+uprev = u.copy()
 # keep track of which light rays are still moving
-stopped = np.full_like(phi,False,dtype=bool)
-while not np.all(stopped):
-	ua = 3*(u**2) - u
-	u += uv*dphi + 0.5*ua*(dphi**2)
-	uv += ua*dphi
-	phi += dphi # check
-	ul = np.append(ul[:,:,:],u[:,:,np.newaxis],axis=2)
-	uvl = np.append(uvl[:,:,:],u[:,:,np.newaxis],axis=2)
-	print(np.sum(stopped))
-	# correct fate: 
-	# idx = [condition]
-	ulim = 0.5*rs/(rm*(sin(phi)**2)) # u limits
-	# whatever has cleared the magnetosphere
-	idx = ((ul[:,:,-1] >= ulim) & (ul[:,:,-2] <= ulim)) | ((ul[:,:,-1] <= ulim) & (ul[:,:,-2] >= ulim))
-	# process the impact angle
-	stopped[idx] = True
-	# record du/dphi, record u, record phi for the impact
-	uf[idx] = u[idx]
-	ufprime[idx] = uv[idx]
-	fphi[idx] = phi[idx]
-	u[idx] = 0 # photon banished to infinity
-	uv[idx] = 0
-	idx =  (u <= 0.5*rs/rm) | (u >= 0.5*rs/rpuls)
-	stopped[idx] = True
-	u[idx] = 0
-	uv[idx] = 0
-rf = 0.5*rs/uf
-rprime = -0.5*rs*ufprime/(ufprime**2)
-# checked with Sharada Aunty
-# think about the below formula. Check it: with conversion with dy/dx, it should vanish at 35.3 deg. 
-rprime_b = rm*sin(2*phi) # check this formula on desmos
+stopped = np.full_like(lam,False,dtype=bool)
+try:
+	while not np.all(stopped):
+		ua = 3*(u**2) - u
+		dlam = sign(uv)*inc
+		#dlam = inc
+		uprev = u
+		u += uv*dlam + 0.5*ua*(dlam**2)
+		uv += ua*dlam
+		lam += dlam # check
+		print(np.sum(~stopped))
+		# correct fate: 
+		# idx = [condition]
+		# whatever has cleared the magnetosphere
+		idx = (u >= 0.5*rs/(rm*(cos(lam)**2))) & (uprev <= 0.5*rs/(rm*(cos(lam-dlam)**2)))
+		# process the impact angle
+		stopped[idx] = True
+		uf[idx] = u[idx]
+		ufprime[idx] = uv[idx]
+		flam[idx] = lam[idx]
+		u[idx] = 0 # photon banished to infinity
+		uv[idx] = 0
+		idx =  (u <= 0.5*rs/rm) | (u >= 0.5*rs/rpuls)
+		stopped[idx] = True
+		u[idx] = 0
+		uv[idx] = 0
+	raise KeyboardInterrupt
+except KeyboardInterrupt:
+	rf = 0.5*rs/uf
+	rprime = -0.5*rs*ufprime/(ufprime**2)
+	# checked with Sharada Aunty
+	# think about the below formula. Check it: with conversion with dy/dx, it should vanish at 35.3 deg. 
+	rprime_b = -rm*sin(2*flam)
+	gamma = atan((1/rprime_b)*rf) - atan((1/rprime)*rf)
+	print(gamma[0,:])
+	print(flam[0,:])
+	print(maxlam,pi-maxlam)
+	plt.plot(flam[0,:],gamma[0,:])
+	plt.show()
+	plt.plot(flam[1,:], gamma[1,:])
+	plt.show()
 # now let's think about how to extract this data and turn it into force
 # my method - calculate the solid angle attached to each light ray
 # calculate the total luminous exitance at the poles (erg s^-1)
@@ -70,5 +81,4 @@ rprime_b = rm*sin(2*phi) # check this formula on desmos
 # then trace light paths
 # find the cells of impact
 # apply the formulae, get the analytical solutions
-# profit
 

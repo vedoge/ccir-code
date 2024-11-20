@@ -45,13 +45,14 @@ stot = s(maxlam)-s(-maxlam)
 def update_region(region, dt):
 	global lam, phi,a
 	global plam,pphi,pv
-	lam_parts = plam.reshape(1,1,plam.size)
-	phi_parts = pphi.reshape(1,1,pphi.size)
+	idx = np.arange(int(region*plam.shape[0]/4),int((region+1)*plam.shape[0]/4))
+	lam_parts = plam[idx].reshape(1,1,plam[idx].size)
+	phi_parts = pphi[idx].reshape(1,1,pphi[idx].size)
 	lamcells = np.argmin(np.abs(lam_parts - lam[0,:,np.newaxis]),axis=1).squeeze()
 	phicells = np.argmin(np.abs(phi_parts - phi[:,0, np.newaxis]),axis=1).squeeze()
 	accel = a[phicells, lamcells]
-	ds = pv*dt + 0.5*accel*(dt**2)
-	plam += ds/(rm*cos(plam)*sqrt(1+3*(sin(plam)**2)))
+	ds = pv[idx]*dt + 0.5*accel*(dt**2)
+	plam[idx] += ds/(rm*cos(plam[idx])*sqrt(1+3*(sin(plam[idx])**2)))
 def acc(lam,phi,region):
 	# region - variable from 0 to 3
 	# determines which phi coordinates are changed
@@ -106,6 +107,10 @@ with ThreadPoolExecutor(max_workers=4) as executor:
 	[executor.submit(acc,lam,phi,i) for i in range(4)]
 # if we need to, we can check the mutex to make sure that there are no running threads
 t = 0
+plam_record = plam.copy()
+with ThreadPoolExecutor(max_workers=4) as executor:
+    [executor.submit(update_region,i,1e-5) for i in range(4)]
+print(np.sum(plam_record == plam)/np.size(plam))
 lam0 = lat0(phi[0,:],wmag*t)
 # add N particles to each cell (add NM particles)
 # M = 100, N = 2

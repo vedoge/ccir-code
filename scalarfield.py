@@ -5,7 +5,7 @@ G = 6.67e-8 # dyn cm^2 g^-2
 # parameters of significance in the calculation
 f = 10 # Hz
 wmag = 2*np.pi*f # radHz
-beta = 1 # rad
+beta = 0.3 # rad
 w = wmag*np.array([np.sin(beta),0,np.cos(beta)]) # radHz (Cartesian)
 rm = 1e8 # cm
 rpuls = 1e6 #cm
@@ -46,6 +46,7 @@ acen = np.linalg.vecdot(-n,np.cross(w,np.cross(w,r,axis=0),axis=0),axis=0) #prob
 #ax.set_xlabel(r"$\lambda$ / rad")
 #ax.set_ylabel(r"$\varphi$ / rad")
 #ax.set_zlabel(r"$\mathrm{sgn} \left( a \right) \log_{10} \left| a \right|$")
+print(np.max(ag+acen))
 dset = np.sign(ag+acen)*np.log10(np.abs(ag+acen))
 clev = np.arange(dset.min(),dset.max(),0.01)
 plt.contourf(spacelam,spacephi,np.sign(ag+acen)*np.log10(np.abs(ag+acen)),clev, cmap=plt.cm.coolwarm)

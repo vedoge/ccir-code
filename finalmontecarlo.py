@@ -23,7 +23,7 @@ norm = np.linalg.norm
 sqrt = np.sqrt
 # for threading (parallelism)
 # from threading import Thread, Lock
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor,wait 
 # set up a stream of random numbers that are fast
 rng = np.random.Generator(np.random.SFC64())
 rand = rng.random
@@ -35,6 +35,8 @@ maxlam = acos(sqrt(rpuls/rm))
 alpha = 0.3 # rad
 beta = 0.5 # rad
 wmag = 2*pi*1 # radHz
+# computing parameters
+nr_compute_threads = 2 # customize to your needs
 w = np.array([wmag*sin(beta),0,wmag*cos(beta)])
 # define the array
 def s(lam):
@@ -45,7 +47,7 @@ stot = s(maxlam)-s(-maxlam)
 def update_region(region, dt):
 	global lam, phi,a
 	global plam,pphi,pv
-	idx = np.arange(int(region*plam.shape[0]/4),int((region+1)*plam.shape[0]/4))
+	idx = np.arange(int(region*plam.shape[0]/nr_compute_threads),int((region+1)*plam.shape[0]/nr_compute_threads))
 	lam_parts = plam[idx].reshape(1,1,plam[idx].size)
 	phi_parts = pphi[idx].reshape(1,1,pphi[idx].size)
 	lamcells = np.argmin(np.abs(lam_parts - lam[0,:,np.newaxis]),axis=1).squeeze()
@@ -57,7 +59,7 @@ def acc(lam,phi,region):
 	# region - variable from 0 to 3
 	# determines which phi coordinates are changed
 	global a
-	idx = np.arange(int(region*lam.shape[1]/4),int((region+1)*lam.shape[1]/4))
+	idx = np.arange(int(region*lam.shape[1]/nr_compute_threads),int((region+1)*lam.shape[1]/nr_compute_threads))
 	lamref = lam[:,idx]
 	phiref = phi[:,idx]
 		# region - variable from 0 to 3
@@ -76,9 +78,11 @@ def acc(lam,phi,region):
 	# ag = -G*M*dot(r,n,axis=0)/norm(r,axis=0)**3
 	# acen = dot(-n,cross(w,cross(w,r,axis=0),axis=0),axis=0)
 	a[:,idx] = -G*M*dot(r,n,axis=0)/(norm(r,axis=0)**3) + dot(-n,cross(w,cross(w,r,axis=0),axis=0),axis=0)
-	running_acc_threads_mutex.acquire()
-	running_acc_threads -= 1
-	running_acc_threads.release()
+'''
+running_acc_threads_mutex.acquire()
+running_acc_threads -= 1
+running_acc_threads.release()
+'''
 lam = np.zeros(int(1e5))
 lam[0] = -maxlam
 for i in range(int(1e5)-1):
@@ -103,14 +107,26 @@ Thread(target=acc,args=(lam,phi,1)).run()
 Thread(target=acc,args=(lam,phi,2)).run()
 Thread(target=acc,args=(lam,phi,3)).run()
 '''
-with ThreadPoolExecutor(max_workers=4) as executor:
-	[executor.submit(acc,lam,phi,i) for i in range(4)]
+with ThreadPoolExecutor(max_workers=nr_compute_threads) as executor:
+	[executor.submit(acc,lam,phi,i) for i in range(nr_compute_threads)]
 # if we need to, we can check the mutex to make sure that there are no running threads
-t = 0
-plam_record = plam.copy()
-with ThreadPoolExecutor(max_workers=4) as executor:
-    [executor.submit(update_region,i,1e-5) for i in range(4)]
-print(np.sum(plam_record == plam)/np.size(plam))
+t = 0 # s
+dt = 1e-4 # s (initial)
+dMdt = None
+partspercell = 10 # 500 particles per 10^-5 s (5e7 particles per second, or in other words, 2e10 g per particle) 
+Mpart = 1e16/(phi.shape[0]*partspercell) # mass of individual particle 
+with ThreadPoolExecutor(max_workers=nr_compute_threads) as executor:
+	while t <= 5:
+		[executor.submit(update_region,i,dt) for i in range(nr_compute_threads)]
+        # wait here
+		lost = (plam >= maxlam)
+		dMdt = np.append(dMdt,np.sum(lost)*Mpart)
+		# add new particles 
+		plam = plam[~lost]
+		pphi = pphi[~lost] 
+		t += dt
+		pphi = np.append(pphi, phi[:,0].copy())
+		plam = np.append(plam, lat0(phi[:,0], wmag*t))
 lam0 = lat0(phi[0,:],wmag*t)
 # add N particles to each cell (add NM particles)
 # M = 100, N = 2

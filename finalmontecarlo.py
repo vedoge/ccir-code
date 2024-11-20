@@ -43,15 +43,18 @@ def lat0(phi,wt): # FIXME
 	return np.asin(np.cos(alpha)*np.sin(beta)*np.sin(phi) - np.cos(phi)*np.sin(alpha)*np.sin(wt) + np.cos(beta)*np.sin(alpha)*np.cos(wt)*np.sin(phi))/(np.cos(alpha)*np.cos(beta) - np.sin(alpha)*np.sin(beta)*np.cos(wt))
 stot = s(maxlam)-s(-maxlam)
 def update_region(region, dt):
+	# region - integer from 0 to 3
+	# indexes phi-coordinates
 	global lam, phi,a
 	global plam,pphi,pv
-	lam_parts = plam.reshape(1,1,plam.size)
-	phi_parts = pphi.reshape(1,1,pphi.size)
+	idx = np.arange(int(region*plam.shape[0]/4),int((region+1)*plam.shape[0]/4))
+	lam_parts = plam[idx].reshape(1,1,plam[idx].size)
+	phi_parts = pphi[idx].reshape(1,1,plam[idx].size)
 	lamcells = np.argmin(np.abs(lam_parts - lam[0,:,np.newaxis]),axis=1).squeeze()
 	phicells = np.argmin(np.abs(phi_parts - phi[:,0, np.newaxis]),axis=1).squeeze()
 	accel = a[phicells, lamcells]
-	ds = pv*dt + 0.5*accel*(dt**2)
-	plam += ds/(rm*cos(plam)*sqrt(1+3*(sin(plam)**2)))
+	ds = pv[idx]*dt + 0.5*accel*(dt**2)
+	plam[idx] += ds/(rm*cos(plam[idx])*sqrt(1+3*(sin(plam[idx])**2)))
 def acc(lam,phi,region):
 	# region - variable from 0 to 3
 	# determines which phi coordinates are changed
@@ -59,7 +62,7 @@ def acc(lam,phi,region):
 	idx = np.arange(int(region*lam.shape[1]/4),int((region+1)*lam.shape[1]/4))
 	lamref = lam[:,idx]
 	phiref = phi[:,idx]
-		# region - variable from 0 to 3
+	# region - variable from 0 to 3
 	# determines which lambda coordinates are altered
 	r = np.array([
 		(rm*cos(lamref)**2)*cos(lamref)*cos(phiref),
@@ -75,16 +78,18 @@ def acc(lam,phi,region):
 	# ag = -G*M*dot(r,n,axis=0)/norm(r,axis=0)**3
 	# acen = dot(-n,cross(w,cross(w,r,axis=0),axis=0),axis=0)
 	a[:,idx] = -G*M*dot(r,n,axis=0)/(norm(r,axis=0)**3) + dot(-n,cross(w,cross(w,r,axis=0),axis=0),axis=0)
-	running_acc_threads_mutex.acquire()
-	running_acc_threads -= 1
-	running_acc_threads.release()
+'''
+running_acc_threads_mutex.acquire()
+running_acc_threads -= 1
+running_acc_threads.release()
+'''
 lam = np.zeros(int(1e5))
 lam[0] = -maxlam
 for i in range(int(1e5)-1):
 	l = lam[i]
 	lamprime = rm*cos(l)*sqrt(1+3*(sin(l)**2))
 	lam[i+1] = l + stot/(1e5*lamprime) # approx. 2*10^3 cm / cell; very reasonable computationally
-# generate lambdas
+	# generate lambdas
 lam,phi = np.meshgrid(lam,np.arange(0,2*pi,pi/50)) # the relatively low granularity in phi (100 cells) is actually relatively reasonable - it's not as necessary as that of lambda
 # lam[0,:] is increasing lambda
 # phi[:,0] is increasing phi
@@ -104,7 +109,11 @@ Thread(target=acc,args=(lam,phi,3)).run()
 '''
 with ThreadPoolExecutor(max_workers=4) as executor:
 	[executor.submit(acc,lam,phi,i) for i in range(4)]
-# if we need to, we can check the mutex to make sure that there are no running threads
+# just setup a new executor for the rest
+with ThreadPoolExecutor(max_workers=4) as executor:
+	[executor.submit(update_region(i,1e-5)) for i in range(4)]
+	executor.shutdown(wait=True)
+print(np.sum(plam_comp == plam)/np.size(plam))
 t = 0
 lam0 = lat0(phi[0,:],wmag*t)
 # add N particles to each cell (add NM particles)

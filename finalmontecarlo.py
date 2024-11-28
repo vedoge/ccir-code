@@ -2,6 +2,7 @@
 # Main Monte Carlo Simulation code
 # full calculation 
 # use with montecarloroutines.py
+# add variable dt
 import numpy as np
 import matplotlib.pyplot as plt
 pi = np.pi
@@ -108,7 +109,7 @@ with ThreadPoolExecutor(max_workers = nr_compute_threads) as executor:
 	pv = np.sign(plam)*1e7
 	while t <= tfin:
 		plam = np.array([i for i in executor.map(update_region,plam,pphi,pv)])
-		print(np.sum(np.where((plam>=maxlam) + (plam <= -maxlam))))
+		print(np.sum(np.where((plam>=maxlam) | (plam <= -maxlam))))
 		dMdt[j] = np.sum(np.where((plam >= maxlam) | (plam <= -maxlam)))*Mpart
 		if dMdt[j] != dMdt[j-1]:
 			print(dMdt[j])

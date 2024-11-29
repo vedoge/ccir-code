@@ -53,6 +53,8 @@ def update_region(plam,pphi,pv):
 	phimidpoints = (phi[1:,0] + phi[:-1,0])/2
 	lamcells = np.searchsorted(lammidpoints,plam)
 	phicells = np.searchsorted(phimidpoints,pphi)
+    # address phi and lam with phicells and lamcells
+    # to reduce the dimension of the calculation
 	accel = a[phicells, lamcells]
 	ds = pv*dt + 0.5*accel*(dt**2)
 	plam += ds/(rm*cos(plam)*sqrt(1+3*(sin(plam)**2)))

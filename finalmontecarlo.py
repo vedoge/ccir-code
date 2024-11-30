@@ -33,8 +33,8 @@ M = 2.784e33 # g
 rpuls = 1e6 # cm
 rm = 1e8 # cm
 maxlam = acos(sqrt(rpuls/rm))
-alpha = 0.3 # rad
-beta = 0.5 # rad
+alpha = 0 # rad
+beta = 3*pi/180 # deg
 wmag = 2*pi*1 # radHz
 # computing parameters
 nr_compute_threads = 8 # customize to your needs
@@ -49,12 +49,21 @@ stot = s(maxlam)-s(-maxlam)
 
 def update_region(plam,pphi,pv):
 	global dt, lamendpoints,phiendpoints
-	lamcells = np.searchsorted(lammidpoints,plam)
-	phicells = np.searchsorted(phimidpoints,pphi)
+	lamcells = np.searchsorted(lamendpoints,plam)
+	phicells = np.searchsorted(phiendpoints,pphi)
 	accel = a[phicells, lamcells]
 	ds = pv*dt + 0.5*accel*(dt**2)
 	plam += ds/(rm*cos(plam)*sqrt(1+3*(sin(plam)**2)))
 	return plam 
+
+def calc_dt(plam, pv):
+	global lamendpoints
+	lamcell = np.searchsorted(lamendpoints,plam)
+	if pv <= 0:
+		lamcell -= 1
+	if lamcell == lamendpoints.size: 
+		return np.inf # propagate NaNs
+	return np.min([np.abs(0.2*(s(plam)-s(lamendpoints[lamcell])/pv)), 1e-5])
 
 def acc(lam,phi):
 	# region - variable from 0 to 3
@@ -76,15 +85,15 @@ def acc(lam,phi):
 	# acen = dot(-n,cross(w,cross(w,r,axis=0),axis=0),axis=0)
 	return -G*M*dot(r,n,axis=0)/(norm(r,axis=0)**3) + dot(-n,cross(w,cross(w,r,axis=0),axis=0),axis=0)
 
-lam = np.zeros(int(1e5))
+lam = np.zeros(int(1e6))
 lam[0] = -maxlam
-for i in range(int(1e5)-1):
+for i in range(int(1e6)-1):
 	l = lam[i]
 	lamprime = rm*cos(l)*sqrt(1+3*(sin(l)**2))
-	lam[i+1] = l + stot/(1e5*lamprime) # approx. 4*10^2 cm / cell; very reasonable computationally
+	lam[i+1] = l + stot/(1e6*lamprime) # approx. 4*10^2 cm / cell; very reasonable computationally
 
 # generate lambdas
-phi_width = pi/250
+phi_width = pi/50
 lam,phi = np.meshgrid(lam,np.arange(0,2*pi,phi_width)) # granularity of phi reasonable
 lamendpoints = (lam[0,1:] + lam[0,:-1])/2 #releases GIL - Main thread is allocated a quantum - we're cooked
 phiendpoints = (phi[1:,0] + phi[:-1,0])/2
@@ -96,44 +105,43 @@ a = np.empty_like(phi)
 with ThreadPoolExecutor(max_workers = nr_compute_threads) as executor:
 	a = np.array([res for res in executor.map(acc,lam,phi)]).reshape(phi.shape)
 	t = 0 # s
-	dt = 0 # s (breaks if doesn't work)
+	dt = 1e-5 # s (breaks if doesn't work)
 	j = 0
-	T = None
-	dMdt = None
+	T = 0
+	dMdt = 0
 	tfin = 2 # s
-	partspercell = 10
+	partspercell = 2
 	cells = phi[:,0].size
 	parts = cells*partspercell
 	dMdt_disk = 1e15 # g s^-1
-	pphi = rand(size=(cells,partspercell))*phi_width + phi[:,0:(partspercell)]
+	pphi = (rand(size=(cells,partspercell))*phi_width + phi[:,0:(partspercell)]).flatten()
 	plam = lat0(pphi,0)
 	pv = np.sign(plam)*1e7
-	lamcells = np.searchsorted(lamendpoints,plam)
-	phicells = np.searchsorted(phiendpoints,pphi)
-	dt = np.min([np.abs(0.2*np.min((s(plam)-s(lam[phicells,lamcells]))/pv)),1e-5])
 	mparts = np.full_like(pphi,dMdt_disk*dt/(parts)) # dM = dMdT * deltaT / nr. of particles 
 	while t <= tfin:
 		T = np.append(T,t)
-		print(dt)
 		plam = np.array([i for i in executor.map(update_region,plam,pphi,pv)])
 		# find particles that land on surface
 		pphi[np.where((plam >= maxlam) | (plam <= -maxlam))] = np.nan
 		plam[np.where(pphi == np.nan)] = np.nan
+		pv[np.where(pphi == np.nan)] = np.nan
 		# process them for mass accretion rate
-		dMdt = np.append(dMdt,mparts[np.where(plam==np.nan)]/dt) # calculate mass accretion rate
+		dMdt = np.append(dMdt,np.sum(mparts[np.where(plam==np.nan)]/dt)) # calculate mass accretion rate
+		print(t, dMdt[-1])
 		# calculate dt
-		lamcells = np.searchsorted(lamendpoints,plam)
-		phicells = np.searchsorted(phiendpoints,pphi)
 		t += dt
 		j += 1
-		# calculate dt for next iteration
-		dt = np.min(0.2*np.min((s(plam)-s(lam[phicells,lamcells]))/pv),1e-5)
 		# remove particles that have finished
 		pphi = np.extract(pphi,np.where(np.isfinite(plam)))
 		plam = np.extract(plam,np.where(np.isfinite(plam)))
+		pv = np.extract(pv,np.where(np.isfinite(plam)))
+		# calculate dt for next iteration
+		dt = np.min([i for i in executor.map(calc_dt,plam,pv)])
 		# add particles to simulation
-		pphi_delta =  rand(size=(cells,partspercell))*phi_width + phi[:,0:(partspercell)]
-		plam = np.append(plam, lat0(pphi_delta, wmag*t))
+		pphi_delta =  (rand(size=(cells,partspercell))*phi_width + phi[:,0:(partspercell)]).flatten()
+		plam_delta = lat0(pphi_delta, wmag*t)
+		plam = np.append(plam, plam_delta)
+		pv = np.append(pv, 1e7*np.sign(plam_delta))
 		pphi = np.append(pphi, pphi_delta)
 		mparts = np.append(mparts,np.full_like(pphi_delta,dMdt_disk*dt/parts))
 	plt.plot(T,dMdt)
